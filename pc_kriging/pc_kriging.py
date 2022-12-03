@@ -5,6 +5,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor # is it needed?
 from sklearn.gaussian_process.kernels import RBF # is it needed?
 import scipy.special
 from scipy.special import eval_legendre, eval_hermitenorm
+from numpy.linalg import inv   #if needed
 
 class PC_Kriging():
     def __init__(self, config=None):
@@ -49,8 +50,48 @@ class PC_Kriging():
         
         return B, sig2, phi, alpha
 
-    def predict(self, points):
-        pass
+    def predict (self, XN, xn, y, theta, modelpar1):
+        # B, sig2, phi, alpha 
+        B    = modelpar1[0]
+        sig2 = modelpar1[1]
+        phi  = modelpar1[2]
+        alpha = modelpar1[3]
+        
+        #allocanting storage ------------------------------------------
+        fx = np.zeros((len(XN),len(alpha[1])))
+        rx = np.zeros((len(XN),len(xn)))
+        Rn = np.zeros((len(xn),len(xn)))
+        
+        mean1 = np.zeros(len(XN))
+        mean2 = np.zeros(len(XN))
+        PCKmean = np.zeros(len(XN))
+            
+        ux = np.zeros((len(alpha[1]),len(XN)))
+        term1 = np.zeros((len(XN),len(XN)))
+        term2 = np.zeros((len(XN),len(XN)))
+        variance = np.zeros((len(XN),len(XN)))
+        
+        #XN, inputs  predictions ---------------------------------------
+        fx = self.info_matrix(XN, alpha)                # f(x) information matrix about the predictions
+        rx = self.matern(XN, xn, theta[0], theta[1])       # r(x) correlation matrix between predictions and observations
+        Rn = self.matern(xn, xn, theta[0], theta[1])       # R    correlation matrix between predictions
+        Rn_inv = np.linalg.inv(Rn)                     # R inverse
+
+        #---------------------------------------------- Mean prediction
+        mean1 = fx @ B 
+        mean2 = rx @ Rn_inv @ (y - (phi @ B))
+        PCKmean = mean1 + mean2
+        #---------------------------------------------- Variance prediction
+        ux = ( phi.T @ Rn_inv @ rx.T) - fx.T
+
+        term1 = rx @ Rn_inv @ rx.T
+        term2 = ux.T @ np.linalg.inv(phi.T @ Rn_inv @ phi) @ ux
+
+        variance = sig2 * ( 1 - term1 + term2)
+
+        variaDiag = np.diagonal(variance) 
+        
+        return PCKmean, variaDiag
 
 
     def info_matrix (self, X, alpha):    # X must be normalized for polynomial evaluations
