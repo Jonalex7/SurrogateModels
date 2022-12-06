@@ -1,11 +1,9 @@
 import numpy as np
 from datetime import datetime
 from os import path, makedirs
-from sklearn.gaussian_process import GaussianProcessRegressor # is it needed?
-from sklearn.gaussian_process.kernels import RBF # is it needed?
 import scipy.special
 from scipy.special import eval_legendre, eval_hermitenorm
-from numpy.linalg import inv   #if needed
+from numpy.linalg import inv
 
 class PC_Kriging():
     def __init__(self, config=None):
@@ -17,8 +15,8 @@ class PC_Kriging():
             "Missing config"
 
         self.date_record = datetime.now().strftime("%Y_%m_%d_%H%M%S")
-        self.M1 = self.hermite
-        self.M2 = self.hermite
+        self.M = self.legendre
+        # self.M2 = self.hermite
 
     def train (self, xn, y, p, theta):
         #xn, inputs training points
@@ -35,7 +33,7 @@ class PC_Kriging():
         
         # CHECK DIMENSIONS (INCREASE 1 indices vector per dimension)
         #------------------------------------------------------------------------- #all possible combinations of indices
-        comb = np.array(np.meshgrid(indices,indices)).T.reshape(-1,dim)     #(indices, indices, indices...) per dimension
+        comb = np.array(np.meshgrid(indices)).T.reshape(-1,dim)     #(indices, indices, indices...) per dimension
         alpha = []                 #list of product combinations with degree <= "p" (truncation term)
 
         for i in range (0,len(comb)): 
@@ -102,13 +100,15 @@ class PC_Kriging():
 
         for i in range (0,len(X)):
             for j in range (0, len(alpha)):
-                fx[i,j] = self.M1(X[i,0], alpha[j,0]) * self.M2(X[i,1], alpha[j,1])  #it has to increase per dimension 
+                fx[i,j] = self.M(X[i,0], alpha[j,0]) # * self.M2(X[i,1], alpha[j,1])  #it has to increase per dimension 
 
         return fx
 
     def coefficients(self, F, xn, y, l, v):   
-    
-        R = self.matern(xn , xn, l, v)    # Correlation matrix R between observations
+        vnug= 1e-9
+        nug = np.eye(len(xn))*vnug
+
+        R = self.matern(xn , xn, l, v)+ nug    # Correlation matrix R between observations
         
         R_inv = np.linalg.inv(R)
         left_r =  np.linalg.inv((F.T @ R_inv) @ F)
@@ -122,17 +122,17 @@ class PC_Kriging():
         
         return  B_hat, sig2
 
-    def matern(self, xr, xn, theta, v):     
-        #theta, l, hyperparameter (length scaled)
+    def matern(self, xr, xn, l, v):     
+        #l, hyperparameter (length scaled)
         #matern parameter, v can be 3/2, 5/2
         
         d = self.distance(xr,xn)                 #eucledian distance
         R = np.zeros((len(xr),len(xn)))
         
         if v == 3/2:
-            R = (1+ np.sqrt(3)*d/theta) * np.exp(-(np.sqrt(3)*d/theta))
+            R = (1+ np.sqrt(3)*d/l) * np.exp(-(np.sqrt(3)*d/l))
         elif v == 5/2:
-            R = ((1+ (np.sqrt(5)*d/theta) + (5/3)*(d/theta)**2 )* np.exp(-(np.sqrt(5)*d/theta)))
+            R = ((1+ (np.sqrt(5)*d/l) + (5/3)*(d/l)**2 )* np.exp(-(np.sqrt(5)*d/l)))
         return R
 
     def distance(self, x, xk):                        #multidimensional distance between 2 samples
@@ -149,7 +149,8 @@ class PC_Kriging():
     def legendre(self, x, n):
         return eval_legendre(n,x)*np.sqrt(2*n+1)
 
-    def scalelegendre(self, x, new_min, new_max): 
+    def scalelegendre(self, x, new_min, new_max):
+        #to go from (-1,1) to (new_min, new_max) 
         return ((new_min+new_max)+((new_max-new_min)*x))/2
 
     def scalehermite(self, x , mean, sigma):
