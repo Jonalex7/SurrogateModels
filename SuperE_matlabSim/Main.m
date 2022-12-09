@@ -1,4 +1,4 @@
-%% Explanations
+Ma%% Explanations
 
 % This program provides displacement and efforts in element for any 3D
 % tubular structure.
@@ -9,17 +9,31 @@
 %%%% All comments with (%%%%) were hidden from the original code
     %in the following functions
     %Main,solve,DataJacket,automaticContact,ComputeZoneAB,impactPointTim,draw
-function [Screening] = Main(ShipAngle,ShipSpeed)
+function [Screening] = Main(ShipAngle,ShipSpeed,Dextleg,Dextbra,Sigma,YoungM)
 %% Cleaning
 
 close all
 %clear all
-clearvars -except ShipAngle ShipSpeed %samples
+clearvars -except ShipAngle ShipSpeed Dextleg Dextbra Sigma YoungM %samples
 clc
-disp(['Ship Angle = ',num2str(ShipAngle),'    Ship Speed = ',num2str(ShipSpeed)])
+disp(['Ship Angle = ',num2str(ShipAngle),'   Ship Speed = ',num2str(ShipSpeed),'  DLeg = ',num2str(Dextleg),'  DBrac = ',num2str(Dextbra),'  FlowStress = ',num2str(Sigma),'  Young Modulus = ',num2str(YoungM)])
 %% Data (geometric, mechanical, boundary conditions, forces)
 
 drawInit = 0; % draw initial structure : 1 -> yes ; 0 -> no
+
+%JONATHAN (INPUT)--------------------------------------------------Start
+%variables taken from DataJacket3D
+
+data.shipTrajectory = ShipAngle;
+data.shipSpeed = ShipSpeed;
+data.pointTrajectory = [0 0]; %In the Jacket frame of reference
+YoungModulus = YoungM;
+FlowStress = Sigma;
+Dleg=Dextleg;       %assuming Dleg/tleg = 26
+Dbra=Dextbra;       %assuming Dbra/tbra = 13
+
+%No bulb is considered 
+%JONATHAN (INPUT)----------------------------------------------------End
 
 %%%%%%%%%% Choose of the right file %%%%%%%%%%
 DataJacket3D
@@ -48,13 +62,6 @@ solveOption.fontsizeLabel = 20;
 solveOption.fontsizeLegend = 14;
 solveOption.fontsizeAxis = 16;
 
-%JONATHAN (INPUT)---------------------------------------------------------
-%variables taken from DataJacket3D
-data.shipTrajectory = ShipAngle;
-data.shipSpeed = ShipSpeed;
-data.pointTrajectory = [0 0]; %In the Jacket frame of reference
-%No bulb is considered 
-%JONATHAN (INPUT)---------------------------------------------------------
 %%%%tic
 [properties,propertiesInit,contactElement,contactNode,dofs,dispTot,matrices,plasticity,cylinder,cylinderTot,ship,impact,punchProp,punchPropLeft,punchPropRight,basisJacket,Output] = solve(data,ship,properties,dofs,solveOption);  %%Parameter M was removed from the output of the function 
 Screening(1:3) = Output;

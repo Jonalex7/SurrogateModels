@@ -8,15 +8,18 @@ from numpy.linalg import inv
 class PC_Kriging():
     def __init__(self, config=None):
         if config is None:
-            config = {"pol_type": ['hermite', 'legendre'],
-                      "order": [2, 1]}
+            config = {"pol_type": ['hermite', 'legendre']}
         assert "pol_type" in config and \
-               "order" in config and \
             "Missing config"
 
         self.date_record = datetime.now().strftime("%Y_%m_%d_%H%M%S")
-        self.M = self.legendre
-        # self.M2 = self.hermite
+        
+        self.polynomials = []
+        for polyn in config["pol_type"]:
+            if polyn == 'hermite':
+                self.polynomials.append(self.hermite)
+            else:
+                self.polynomials.append(self.legendre)
 
     def train (self, xn, y, p, theta):
         #xn, inputs training points
@@ -33,7 +36,11 @@ class PC_Kriging():
         
         # CHECK DIMENSIONS (INCREASE 1 indices vector per dimension)
         #------------------------------------------------------------------------- #all possible combinations of indices
-        comb = np.array(np.meshgrid(indices)).T.reshape(-1,dim)     #(indices, indices, indices...) per dimension
+        indices_ = []
+        for i in range(dim):
+            indices_.append(indices)
+        comb = np.array(np.meshgrid(*indices_)).T.reshape(-1,dim)
+        
         alpha = []                 #list of product combinations with degree <= "p" (truncation term)
 
         for i in range (0,len(comb)): 
@@ -42,7 +49,7 @@ class PC_Kriging():
 
         alpha = np.array(alpha) #alpha for multivariate combination
         
-        phi = self.info_matrix(xn, alpha)     #check the number of variables included 
+        phi = self.info_matrix(xn, alpha)     #check the number of variables included
         
         B, sig2 = self.coefficients(phi, xn, y, theta[0], theta[1])
         
@@ -100,15 +107,19 @@ class PC_Kriging():
 
         for i in range (0,len(X)):
             for j in range (0, len(alpha)):
-                fx[i,j] = self.M(X[i,0], alpha[j,0]) # * self.M2(X[i,1], alpha[j,1])  #it has to increase per dimension 
-
+                indx = 0
+                fx_ = 1
+                for polyn in self.polynomials:
+                    fx_ *= polyn(X[i,indx], alpha[j,indx])
+                    indx += 1
+                fx[i,j] = fx_  #it has to increase per dimension
         return fx
 
     def coefficients(self, F, xn, y, l, v):   
-        vnug= 1e-9
+        vnug= 0 #1e-9                  #adding nuget to main diagonal in case of numerical instability
         nug = np.eye(len(xn))*vnug
 
-        R = self.matern(xn , xn, l, v)+ nug    # Correlation matrix R between observations
+        R = self.matern(xn , xn, l, v)+ nug     # Correlation matrix R between observations
         
         R_inv = np.linalg.inv(R)
         left_r =  np.linalg.inv((F.T @ R_inv) @ F)
