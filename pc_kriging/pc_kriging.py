@@ -120,8 +120,10 @@ class PC_Kriging():
         return fx
 
     def coefficients(self, F, xn, y, l, v):   
-    
-        R = self.matern(xn , xn, l, v)    # Correlation matrix R between observations
+        vnug= 0 #1e-9                  #adding nuget to main diagonal in case of numerical instability
+        nug = np.eye(len(xn))*vnug
+
+        R = self.matern(xn , xn, l, v)+ nug     # Correlation matrix R between observations
         
         R_inv = np.linalg.inv(R)
         left_r =  np.linalg.inv((F.T @ R_inv) @ F)
