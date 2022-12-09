@@ -22,12 +22,11 @@ class PC_Kriging():
                 self.polynomials.append(self.legendre)
 
     def train (self, xn, y, p, theta):
-        #xn, inputs training points
-        #y, observations
-        #p, degree of polynomial expansion
-        #theta [ l, hyperparameter (length scaled); v, matern coefficient ]
-        #---------------------------------------------------
-        
+        self.doe = xn          #xn, inputs training points
+        self.observ = y        #y, observations
+        self.degree = p        #p, degree of polynomial expansion
+        self.hyperp = theta    #theta [ l, hyperparameter (length scaled); v, matern coefficient ]
+
         # information matrix based on observations and a chosen polynomial expansion
         
         dim = xn.shape[1]
@@ -51,52 +50,52 @@ class PC_Kriging():
         
         phi = self.info_matrix(xn, alpha)     #check the number of variables included
         
-        B, sig2 = self.coefficients(phi, xn, y, theta[0], theta[1])
+        #coefficients, calibrated weights
+        #Sigma Squared
+        self.coeff, self.sigmaSQ = self.coefficients(phi, xn, y, theta[0], theta[1])
+        #--------------------------------------------------- 
+        self.Poly_ind = alpha      #polynomial indices
+        self.InfoMat = phi         #information matrix with training points
         
-        return B, sig2, phi, alpha
+        return self.coeff, self.sigmaSQ
 
-    def predict (self, XN, xn, y, theta, modelpar1):
-        # B, sig2, phi, alpha 
-        B    = modelpar1[0]
-        sig2 = modelpar1[1]
-        phi  = modelpar1[2]
-        alpha = modelpar1[3]
-        
+    def predict (self, XN):
+
         #allocanting storage ------------------------------------------
-        fx = np.zeros((len(XN),len(alpha[1])))
-        rx = np.zeros((len(XN),len(xn)))
-        Rn = np.zeros((len(xn),len(xn)))
+        fx = np.zeros((len(XN),len(self.Poly_ind[1])))
+        rx = np.zeros((len(XN),len(self.doe)))
+        Rn = np.zeros((len(self.doe),len(self.doe)))
         
         mean1 = np.zeros(len(XN))
         mean2 = np.zeros(len(XN))
         PCKmean = np.zeros(len(XN))
             
-        ux = np.zeros((len(alpha[1]),len(XN)))
+        ux = np.zeros((len(self.Poly_ind[1]),len(XN)))
         term1 = np.zeros((len(XN),len(XN)))
         term2 = np.zeros((len(XN),len(XN)))
         variance = np.zeros((len(XN),len(XN)))
         
         #XN, inputs  predictions ---------------------------------------
-        fx = self.info_matrix(XN, alpha)                # f(x) information matrix about the predictions
-        rx = self.matern(XN, xn, theta[0], theta[1])       # r(x) correlation matrix between predictions and observations
-        Rn = self.matern(xn, xn, theta[0], theta[1])       # R    correlation matrix between predictions
+        fx = self.info_matrix(XN, self.Poly_ind)                # f(x) information matrix about the predictions
+        rx = self.matern(XN, self.doe, self.hyperp[0], self.hyperp[1])       # r(x) correlation matrix between predictions and observations
+        Rn = self.matern(self.doe, self.doe, self.hyperp[0], self.hyperp[1])       # R    correlation matrix between predictions
         Rn_inv = np.linalg.inv(Rn)                     # R inverse
 
         #---------------------------------------------- Mean prediction
-        mean1 = fx @ B 
-        mean2 = rx @ Rn_inv @ (y - (phi @ B))
-        PCKmean = mean1 + mean2
+        mean1 = fx @ self.coeff 
+        mean2 = rx @ Rn_inv @ (self.observ - (self.InfoMat @ self.coeff))
+        self.PCK_mean = mean1 + mean2
         #---------------------------------------------- Variance prediction
-        ux = ( phi.T @ Rn_inv @ rx.T) - fx.T
-
+        ux = ( self.InfoMat.T @ Rn_inv @ rx.T) - fx.T
         term1 = rx @ Rn_inv @ rx.T
-        term2 = ux.T @ np.linalg.inv(phi.T @ Rn_inv @ phi) @ ux
-
-        variance = sig2 * ( 1 - term1 + term2)
-
+        term2 = ux.T @ np.linalg.inv(self.InfoMat.T @ Rn_inv @ self.InfoMat) @ ux
+        variance = self.sigmaSQ * ( 1 - term1 + term2)
         variaDiag = np.diagonal(variance) 
-        
-        return PCKmean, variaDiag
+        #----------------------------------------------
+        self.PCE_tren = mean1
+        self.variance = variaDiag
+
+        return self.PCK_mean , self.variance
 
 
     def info_matrix (self, X, alpha):    # X must be normalized for polynomial evaluations
