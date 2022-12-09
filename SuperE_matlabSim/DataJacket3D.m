@@ -274,14 +274,20 @@ for i = 1:data.nbElements
 end
 
 % Cross section properties
+% Type De(i): 1->leg ; 2->bottom horiz ; 3->top horiz ; 4->brace
 
-data.De = [ 1.3 ;  1.3 ;  1.3 ; 0.65 ;  1.3];
-data.t  = [0.05 ; 0.05 ; 0.05 ; 0.05 ; 0.05];
+tleg=Dleg/26;  %assuming Dleg/t = 26
+tbra=Dbra/13;  %assuming Dbra/t = 13
+
+data.De = [ Dleg ;  Dleg ;  Dleg ; Dbra ;  Dbra];   % data.De = [ 1.3 ;  1.3 ;  1.3 ; 0.65 ;  1.3];
+data.t  = [tleg ; tleg ; tleg ; tbra ; tleg];       % data.t  = [0.05 ; 0.05 ; 0.05 ; 0.05 ; 0.05];
 
 % Material properties
 
-data.fy = [ones(4,1)*317*10^6 ; 317*10^9];
-data.E  = [ones(4,1)*210000*10^6 ; 210000*10^9];
+%data.fy = [ones(4,1)*317*10^6 ; 317*10^9];         %ones(4,1)*317*10^6 ; 317*10^9
+%data.E  = [ones(4,1)*210000*10^6 ; 210000*10^9];    %ones(4,1)*210000*10^6 ; 210000*10^9
+data.fy = [ones(4,1)*FlowStress ; 317*10^9];         %ones(4,1)*317*10^6 ; 317*10^9
+data.E  = [ones(4,1)*YoungModulus ; 210000*10^9];    %ones(4,1)*210000*10^6 ; 210000*10^9
 
 % Boundary conditions
 

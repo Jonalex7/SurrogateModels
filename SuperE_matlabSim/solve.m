@@ -903,7 +903,7 @@ end
 
 %% Results
 
-disp(['Time before ship stops is equal to ',num2str(time),' seconds'])
+% disp(['Time before ship stops is equal to ',num2str(time),' seconds'])
 % % % % disp(['2nd contact for crushing of ',num2str(dispSecondContact),' meters'])
 % % % % M1 = draw(propertiesInit,dispTot,dofs,solveOption,plasticity,time); %%time
 % % % % M(:,plotNumber) = M1;
@@ -1073,13 +1073,13 @@ gh = Ebase;
 % % % % set(gca,'FontSize',solveOption.fontsizeAxis)
 % % % % hold off
 
-% % % % figure;         %%GRAPH OF TOTAL RESISTANCE FORCE
-% % % % hold on
-% % % % plot(dispResult(1:point),forceResultFinal)
-% % % % xlabel('Total displacement [m]','FontSize',solveOption.fontsizeLabel)
-% % % % ylabel('Final Resistance Force [MN]','FontSize',solveOption.fontsizeLabel)
-% % % % set(gca,'FontSize',solveOption.fontsizeAxis)
-% % % % hold off
+% % % % % figure;         %%GRAPH OF TOTAL RESISTANCE FORCE
+% % % % % hold on
+% % % % % plot(dispResult(1:point),forceResultFinal)
+% % % % % xlabel('Total displacement [m]','FontSize',solveOption.fontsizeLabel)
+% % % % % ylabel('Final Resistance Force [MN]','FontSize',solveOption.fontsizeLabel)
+% % % % % set(gca,'FontSize',solveOption.fontsizeAxis)
+% % % % % hold off
 
 %JONATHAN (OUTPUT)---------------------------------------------------------
 

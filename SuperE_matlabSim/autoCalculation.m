@@ -47,7 +47,7 @@ end
 
 properties.De  = zeros(dofs.nbElements,1); % External diameter - [m]
 properties.t   = zeros(dofs.nbElements,1); % Thickness - [m]
-properties.fy  = zeros(dofs.nbElements,1);    % Yield limit - [N/m^2]
+properties.fy  = zeros(dofs.nbElements,1); % Yield limit - [N/m^2]
 properties.E   = zeros(dofs.nbElements,1); % Young's modulus - [N/m^2]
 properties.rho = zeros(dofs.nbElements,2); % Fixity factors
 for i = 1:dofs.nbElements

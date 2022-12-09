@@ -20,10 +20,7 @@ if ship.bulbous == 0
     
     slopeTraj = tan(data.shipTrajectory*pi/180);
     shiftTraj = data.pointTrajectory(2) - slopeTraj*data.pointTrajectory(1);
-    pb = ship.p - (ship.hb/tan(ship.psib*pi/180)); %Lower semi-beam of the ship
-%                 pby = (((ship.p-pb)/ship.hb)*zPoint)+pb;
-%                 shiftTrajUpBow = shiftTraj + pby/(cos(data.shipTrajectory*pi/180));
-%                 shiftTrajDownBow = shiftTraj - pby/(cos(data.shipTrajectory*pi/180));
+    pb = ship.p - (ship.hb/tan(ship.psib*pi/180));  %Lower semi-beam of the ship
 %     shiftTrajUpBow = shiftTraj + ship.p/(cos(data.shipTrajectory*pi/180));
 %     shiftTrajDownBow = shiftTraj - ship.p/(cos(data.shipTrajectory*pi/180));
     
