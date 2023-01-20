@@ -1,11 +1,9 @@
 import numpy as np
 from datetime import datetime
 from os import path, makedirs
-from sklearn.gaussian_process import GaussianProcessRegressor # is it needed?
-from sklearn.gaussian_process.kernels import RBF # is it needed?
 import scipy.special
 from scipy.special import eval_legendre, eval_hermitenorm
-from numpy.linalg import inv   #if needed
+from numpy.linalg import inv
 
 class PC_Kriging():
     def __init__(self, config=None):
@@ -24,12 +22,11 @@ class PC_Kriging():
                 self.polynomials.append(self.legendre)
 
     def train (self, xn, y, p, theta):
-        #xn, inputs training points
-        #y, observations
-        #p, degree of polynomial expansion
-        #theta [ l, hyperparameter (length scaled); v, matern coefficient ]
-        #---------------------------------------------------
-        
+        self.doe = xn          #xn, inputs training points
+        self.observ = y        #y, observations
+        self.degree = p        #p, degree of polynomial expansion
+        self.hyperp = theta    #theta [ l, hyperparameter (length scaled); v, matern coefficient ]
+
         # information matrix based on observations and a chosen polynomial expansion
         
         dim = xn.shape[1]
@@ -53,52 +50,52 @@ class PC_Kriging():
         
         phi = self.info_matrix(xn, alpha)     #check the number of variables included
         
-        B, sig2 = self.coefficients(phi, xn, y, theta[0], theta[1])
+        #coefficients, calibrated weights
+        #Sigma Squared
+        self.coeff, self.sigmaSQ = self.coefficients(phi, xn, y, theta[0], theta[1])
+        #--------------------------------------------------- 
+        self.Poly_ind = alpha      #polynomial indices
+        self.InfoMat = phi         #information matrix with training points
         
-        return B, sig2, phi, alpha
+        return self.coeff, self.sigmaSQ
 
-    def predict (self, XN, xn, y, theta, modelpar1):
-        # B, sig2, phi, alpha 
-        B    = modelpar1[0]
-        sig2 = modelpar1[1]
-        phi  = modelpar1[2]
-        alpha = modelpar1[3]
-        
+    def predict (self, XN):
+
         #allocanting storage ------------------------------------------
-        fx = np.zeros((len(XN),len(alpha[1])))
-        rx = np.zeros((len(XN),len(xn)))
-        Rn = np.zeros((len(xn),len(xn)))
+        fx = np.zeros((len(XN),len(self.Poly_ind[1])))
+        rx = np.zeros((len(XN),len(self.doe)))
+        Rn = np.zeros((len(self.doe),len(self.doe)))
         
         mean1 = np.zeros(len(XN))
         mean2 = np.zeros(len(XN))
         PCKmean = np.zeros(len(XN))
             
-        ux = np.zeros((len(alpha[1]),len(XN)))
+        ux = np.zeros((len(self.Poly_ind[1]),len(XN)))
         term1 = np.zeros((len(XN),len(XN)))
         term2 = np.zeros((len(XN),len(XN)))
         variance = np.zeros((len(XN),len(XN)))
         
         #XN, inputs  predictions ---------------------------------------
-        fx = self.info_matrix(XN, alpha)                # f(x) information matrix about the predictions
-        rx = self.matern(XN, xn, theta[0], theta[1])       # r(x) correlation matrix between predictions and observations
-        Rn = self.matern(xn, xn, theta[0], theta[1])       # R    correlation matrix between predictions
+        fx = self.info_matrix(XN, self.Poly_ind)                # f(x) information matrix about the predictions
+        rx = self.matern(XN, self.doe, self.hyperp[0], self.hyperp[1])       # r(x) correlation matrix between predictions and observations
+        Rn = self.matern(self.doe, self.doe, self.hyperp[0], self.hyperp[1])       # R    correlation matrix between predictions
         Rn_inv = np.linalg.inv(Rn)                     # R inverse
 
         #---------------------------------------------- Mean prediction
-        mean1 = fx @ B 
-        mean2 = rx @ Rn_inv @ (y - (phi @ B))
-        PCKmean = mean1 + mean2
+        mean1 = fx @ self.coeff 
+        mean2 = rx @ Rn_inv @ (self.observ - (self.InfoMat @ self.coeff))
+        self.PCK_mean = mean1 + mean2
         #---------------------------------------------- Variance prediction
-        ux = ( phi.T @ Rn_inv @ rx.T) - fx.T
-
+        ux = ( self.InfoMat.T @ Rn_inv @ rx.T) - fx.T
         term1 = rx @ Rn_inv @ rx.T
-        term2 = ux.T @ np.linalg.inv(phi.T @ Rn_inv @ phi) @ ux
-
-        variance = sig2 * ( 1 - term1 + term2)
-
+        term2 = ux.T @ np.linalg.inv(self.InfoMat.T @ Rn_inv @ self.InfoMat) @ ux
+        variance = self.sigmaSQ * ( 1 - term1 + term2)
         variaDiag = np.diagonal(variance) 
-        
-        return PCKmean, variaDiag
+        #----------------------------------------------
+        self.PCE_tren = mean1
+        self.variance = variaDiag
+
+        return self.PCK_mean , self.variance
 
 
     def info_matrix (self, X, alpha):    # X must be normalized for polynomial evaluations
@@ -135,17 +132,17 @@ class PC_Kriging():
         
         return  B_hat, sig2
 
-    def matern(self, xr, xn, theta, v):     
-        #theta, l, hyperparameter (length scaled)
+    def matern(self, xr, xn, l, v):     
+        #l, hyperparameter (length scaled)
         #matern parameter, v can be 3/2, 5/2
         
         d = self.distance(xr,xn)                 #eucledian distance
         R = np.zeros((len(xr),len(xn)))
         
         if v == 3/2:
-            R = (1+ np.sqrt(3)*d/theta) * np.exp(-(np.sqrt(3)*d/theta))
+            R = (1+ np.sqrt(3)*d/l) * np.exp(-(np.sqrt(3)*d/l))
         elif v == 5/2:
-            R = ((1+ (np.sqrt(5)*d/theta) + (5/3)*(d/theta)**2 )* np.exp(-(np.sqrt(5)*d/theta)))
+            R = ((1+ (np.sqrt(5)*d/l) + (5/3)*(d/l)**2 )* np.exp(-(np.sqrt(5)*d/l)))
         return R
 
     def distance(self, x, xk):                        #multidimensional distance between 2 samples
@@ -162,7 +159,8 @@ class PC_Kriging():
     def legendre(self, x, n):
         return eval_legendre(n,x)*np.sqrt(2*n+1)
 
-    def scalelegendre(self, x, new_min, new_max): 
+    def scalelegendre(self, x, new_min, new_max):
+        #to go from (-1,1) to (new_min, new_max) 
         return ((new_min+new_max)+((new_max-new_min)*x))/2
 
     def scalehermite(self, x , mean, sigma):
