@@ -4,6 +4,8 @@ from os import path, makedirs
 import scipy.special
 from scipy.special import eval_legendre, eval_hermitenorm
 from numpy.linalg import inv
+import time
+import math
 
 class PC_Kriging():
     def __init__(self, config=None):
@@ -82,7 +84,7 @@ class PC_Kriging():
         Rn_inv = np.linalg.inv(Rn)                     # R inverse
 
         #---------------------------------------------- Mean prediction
-        mean1 = fx @ self.coeff 
+        mean1 = fx @ self.coeff
         mean2 = rx @ Rn_inv @ (self.observ - (self.InfoMat @ self.coeff))
         self.PCK_mean = mean1 + mean2
         #---------------------------------------------- Variance prediction
@@ -90,13 +92,57 @@ class PC_Kriging():
         term1 = rx @ Rn_inv @ rx.T
         term2 = ux.T @ np.linalg.inv(self.InfoMat.T @ Rn_inv @ self.InfoMat) @ ux
         variance = self.sigmaSQ * ( 1 - term1 + term2)
-        variaDiag = np.diagonal(variance) 
+        variaDiag = np.diagonal(variance)
         #----------------------------------------------
         self.PCE_tren = mean1
         self.variance = variaDiag
 
         return self.PCK_mean , self.variance
 
+
+    def predict_fast (self, XN):
+        Rn = self.matern(self.doe, self.doe, self.hyperp[0], self.hyperp[1])
+        Rn_inv = np.linalg.inv(Rn)
+        
+        size_XN = XN.shape
+        mean_predict = np.zeros(size_XN[0])
+        var_predict = np.zeros(size_XN[0])
+    
+        for i in range(size_XN[0]):
+            fx = self.info_matrix(XN[i].reshape(1,2), self.Poly_ind)
+            rx = self.matern_fast(XN[i].reshape(1,2), self.doe, self.hyperp[0], self.hyperp[1])
+            
+            mean1 = fx @ self.coeff
+            mean2 = rx @ Rn_inv @ (self.observ - (self.InfoMat @ self.coeff))
+            mean_total = mean1 + mean2
+                
+            ux = ( self.InfoMat.T @ Rn_inv @ rx.T) - fx.T
+            term1 = rx @ Rn_inv @ rx.T
+            term2 = ux.T @ np.linalg.inv(self.InfoMat.T @ Rn_inv @ self.InfoMat) @ ux
+            variance = self.sigmaSQ * ( 1 - term1 + term2)
+        
+            mean_predict[i] = mean_total
+            var_predict[i] = variance[0]
+        
+        return mean_predict , var_predict
+        
+    def matern_fast(self, xr, xn, l, v):
+        #l, hyperparameter (length scaled)
+            #matern parameter, v can be 3/2, 5/2
+        
+        #d = distance_pm(xr,xn)                 #eucledian distance
+        size_xn = xn.shape
+        d = np.zeros((1, size_xn[0]))
+        for j in range(size_xn[0]):
+            d[0, j] = math.dist(xr[0], xn[j])
+        R = np.zeros((len(xr),len(xn)))
+      
+        if v == 3/2:
+            R = (1+ np.sqrt(3)*d/l) * np.exp(-(np.sqrt(3)*d/l))
+        elif v == 5/2:
+            R = ((1+ (np.sqrt(5)*d/l) + (5/3)*(d/l)**2 )* np.exp(-(np.sqrt(5)*d/l)))
+            
+        return R
 
     def info_matrix (self, X, alpha):    # X must be normalized for polynomial evaluations
     
