@@ -109,8 +109,8 @@ class PC_Kriging():
         var_predict = np.zeros(size_XN[0])
     
         for i in range(size_XN[0]):
-            fx = self.info_matrix(XN[i].reshape(1,2), self.Poly_ind)
-            rx = self.matern_fast(XN[i].reshape(1,2), self.doe, self.hyperp[0], self.hyperp[1])
+            fx = self.info_matrix(XN[i].reshape(1,size_XN[1]), self.Poly_ind)
+            rx = self.matern_fast(XN[i].reshape(1,size_XN[1]), self.doe, self.hyperp[0], self.hyperp[1])
             
             mean1 = fx @ self.coeff
             mean2 = rx @ Rn_inv @ (self.observ - (self.InfoMat @ self.coeff))
@@ -129,13 +129,8 @@ class PC_Kriging():
     def matern_fast(self, xr, xn, l, v):
         #l, hyperparameter (length scaled)
             #matern parameter, v can be 3/2, 5/2
-        
-        #d = distance_pm(xr,xn)                 #eucledian distance
         size_xn = xn.shape
-        d = np.zeros((1, size_xn[0]))
-        for j in range(size_xn[0]):
-            d[0, j] = math.dist(xr[0], xn[j])
-        R = np.zeros((len(xr),len(xn)))
+        d = np.linalg.norm(xr - xn, axis=1).reshape(1, size_xn[0])
       
         if v == 3/2:
             R = (1+ np.sqrt(3)*d/l) * np.exp(-(np.sqrt(3)*d/l))
