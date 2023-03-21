@@ -171,7 +171,10 @@ class PC_Kriging():
 
     def scalehermite(self, x , mean, sigma):
         return mean+sigma*x
-
+    
+    def LinearNorm(self, x, oldmin, oldmax, newmin, newmax):    # scaling linearly X to new domain limits
+        return newmin + ((x-oldmin)*(newmax-newmin)/(oldmax-oldmin))
+    
     def objective_F(self, l):
 
         corr = self.matern(self.doe , self.doe, l, self.maternCoef)
