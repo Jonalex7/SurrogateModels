@@ -4,6 +4,7 @@ from os import path, makedirs
 import scipy.special
 from scipy.special import eval_legendre, eval_hermitenorm
 from numpy.linalg import inv
+from scipy import optimize
 import time
 import math
 
@@ -23,15 +24,18 @@ class PC_Kriging():
             else:
                 self.polynomials.append(self.legendre)
 
-    def train (self, xn, y, p, theta):
+    def train (self, xn, y, p, l, v):
         self.doe = xn          #xn, inputs training points
+        self.N_samples = xn.shape[0]   #number of samples
         self.observ = y        #y, observations
         self.degree = p        #p, degree of polynomial expansion
-        self.hyperp = theta    #theta [ l, hyperparameter (length scaled); v, matern coefficient ]
-
+        self.maternCoef = v    #v, matern coefficient 
+        self.theta = l         #theta, hyperparameter (length scale, l)
+        
         # information matrix based on observations and a chosen polynomial expansion
         
         dim = xn.shape[1]
+        
         indices = np.arange(0, p+1)     #polynomials indices to be combined (1 colum ver variable)
         comb = np.zeros((p**dim, dim))  #to store all possible combinations
         
@@ -54,54 +58,15 @@ class PC_Kriging():
         
         #coefficients, calibrated weights
         #Sigma Squared
-        self.coeff, self.sigmaSQ = self.coefficients(phi, xn, y, theta[0], theta[1])
+        self.coeff, self.sigmaSQ = self.coefficients(phi, xn, y, l, v)
         #--------------------------------------------------- 
         self.Poly_ind = alpha      #polynomial indices
         self.InfoMat = phi         #information matrix with training points
         
         return self.coeff, self.sigmaSQ
 
-    def predict (self, XN):
-
-        #allocanting storage ------------------------------------------
-        fx = np.zeros((len(XN),len(self.Poly_ind[1])))
-        rx = np.zeros((len(XN),len(self.doe)))
-        Rn = np.zeros((len(self.doe),len(self.doe)))
-        
-        mean1 = np.zeros(len(XN))
-        mean2 = np.zeros(len(XN))
-        PCKmean = np.zeros(len(XN))
-            
-        ux = np.zeros((len(self.Poly_ind[1]),len(XN)))
-        term1 = np.zeros((len(XN),len(XN)))
-        term2 = np.zeros((len(XN),len(XN)))
-        variance = np.zeros((len(XN),len(XN)))
-        
-        #XN, inputs  predictions ---------------------------------------
-        fx = self.info_matrix(XN, self.Poly_ind)                # f(x) information matrix about the predictions
-        rx = self.matern(XN, self.doe, self.hyperp[0], self.hyperp[1])       # r(x) correlation matrix between predictions and observations
-        Rn = self.matern(self.doe, self.doe, self.hyperp[0], self.hyperp[1])       # R    correlation matrix between predictions
-        Rn_inv = np.linalg.inv(Rn)                     # R inverse
-
-        #---------------------------------------------- Mean prediction
-        mean1 = fx @ self.coeff
-        mean2 = rx @ Rn_inv @ (self.observ - (self.InfoMat @ self.coeff))
-        self.PCK_mean = mean1 + mean2
-        #---------------------------------------------- Variance prediction
-        ux = ( self.InfoMat.T @ Rn_inv @ rx.T) - fx.T
-        term1 = rx @ Rn_inv @ rx.T
-        term2 = ux.T @ np.linalg.inv(self.InfoMat.T @ Rn_inv @ self.InfoMat) @ ux
-        variance = self.sigmaSQ * ( 1 - term1 + term2)
-        variaDiag = np.diagonal(variance)
-        #----------------------------------------------
-        self.PCE_tren = mean1
-        self.variance = variaDiag
-
-        return self.PCK_mean , self.variance
-
-
-    def predict_fast (self, XN):
-        Rn = self.matern(self.doe, self.doe, self.hyperp[0], self.hyperp[1])
+    def predict(self, XN):
+        Rn = self.matern(self.doe, self.doe, self.theta, self.maternCoef)
         Rn_inv = np.linalg.inv(Rn)
         
         size_XN = XN.shape
@@ -110,8 +75,8 @@ class PC_Kriging():
     
         for i in range(size_XN[0]):
             fx = self.info_matrix(XN[i].reshape(1,size_XN[1]), self.Poly_ind)
-            rx = self.matern_fast(XN[i].reshape(1,size_XN[1]), self.doe, self.hyperp[0], self.hyperp[1])
-            
+            rx = self.matern_fast(XN[i].reshape(1,size_XN[1]), self.doe, self.theta, self.maternCoef)
+
             mean1 = fx @ self.coeff
             mean2 = rx @ Rn_inv @ (self.observ - (self.InfoMat @ self.coeff))
             mean_total = mean1 + mean2
@@ -159,7 +124,7 @@ class PC_Kriging():
         vnug= 0 #1e-9                  #adding nuget to main diagonal in case of numerical instability
         nug = np.eye(len(xn))*vnug
 
-        R = self.matern(xn , xn, l, v)+ nug     # Correlation matrix R between observations
+        R = self.matern(xn, xn, l, v)+ nug     # Correlation matrix R between observations
         
         R_inv = np.linalg.inv(R)
         left_r =  np.linalg.inv((F.T @ R_inv) @ F)
@@ -177,21 +142,21 @@ class PC_Kriging():
         #l, hyperparameter (length scaled)
         #matern parameter, v can be 3/2, 5/2
         
-        d = self.distance(xr,xn)                 #eucledian distance
-        R = np.zeros((len(xr),len(xn)))
+        d = self.distance(xr, xn)                 #eucledian distance
         
         if v == 3/2:
             R = (1+ np.sqrt(3)*d/l) * np.exp(-(np.sqrt(3)*d/l))
         elif v == 5/2:
             R = ((1+ (np.sqrt(5)*d/l) + (5/3)*(d/l)**2 )* np.exp(-(np.sqrt(5)*d/l)))
         return R
-
-    def distance(self, x, xk):                        #multidimensional distance between 2 samples
+    
+    def distance(self, x, xk):                        #multidimensional distance between 2 samples with numpy      
         d = np.zeros((len(x),len(xk)))
         
-        for j in range(0,len(xk)):
-            for i in range(0,len(x)):
-                d[i,j] = d[i,j] + np.sqrt(np.sum((x[i]-xk[j])**2))
+        for i in range(0,len(x)):
+            
+            d[i] = [np.linalg.norm(x[i] - xk[j]) for j in range(0, len(xk))]
+            
         return d
 
     def hermite(self, x, n):
@@ -206,3 +171,48 @@ class PC_Kriging():
 
     def scalehermite(self, x , mean, sigma):
         return mean+sigma*x
+    
+    def LinearNorm(self, x, oldmin, oldmax, newmin, newmax):    # scaling linearly X to new domain limits
+        return newmin + ((x-oldmin)*(newmax-newmin)/(oldmax-oldmin))
+    
+    def objective_F(self, l):
+
+        corr = self.matern(self.doe , self.doe, l, self.maternCoef)
+        detR = np.linalg.det(corr)
+        modelpar = self.train(self.doe, self.observ, self.degree, l, self.maternCoef)    # returns B, sig2
+        ### -------Theta_ by UQLab User Manual PCK(C. Lataniotis, D. Wicaksono, S. Marelli, B. Sudret)
+        sig2 = modelpar[1].reshape(-1)
+        # return 0.5*(np.log(detR)+ N*np.log(2*np.pi*sig2)+ N)
+
+        ### ------------------Theta_ by MLE PCK(Schobi,Sudret,Wiart)------------------------------
+        FB = self.InfoMat @ modelpar[0]
+        ins = (self.observ - FB).reshape(-1)
+        R_1 = np.linalg.inv(corr)
+        return ((ins.T) @ R_1 @ ins) * ( 1 /self.N_samples) * (detR**(1/self.N_samples))
+    
+    def optimize(self, method):
+        # available methods
+        # 'shgo' stands for “simplicial homology global optimization”
+        # 'DA' stands for "dual_annealing"
+        # 'DE' differential evolution
+
+        if method is None:
+            method = 'shgo'
+
+        assert method and \
+            "Optimizer not specified, 'shgo', 'DA', 'DE' "
+        
+        d = self.distance(self.doe, self.doe)
+        
+        lmax = np.max(d)
+        lmin = np.min(d[d!=0])
+        bounds = [(lmin, lmax)]
+
+        if method == 'shgo':
+            return optimize.shgo(self.objective_F, bounds)['x'][0]
+
+        elif method ==  'DA':
+            return optimize.dual_annealing(self.objective_F, bounds)['x'][0]
+        
+        elif method ==  'DE':
+            return optimize.differential_evolution(self.objective_F, bounds)['x'][0]
