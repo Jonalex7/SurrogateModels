@@ -76,7 +76,7 @@ class PC_Kriging():
         for i in range(size_XN[0]):
             fx = self.info_matrix(XN[i].reshape(1,size_XN[1]), self.Poly_ind)
             rx = self.matern_fast(XN[i].reshape(1,size_XN[1]), self.doe, self.theta, self.maternCoef)
-            
+
             mean1 = fx @ self.coeff
             mean2 = rx @ Rn_inv @ (self.observ - (self.InfoMat @ self.coeff))
             mean_total = mean1 + mean2
