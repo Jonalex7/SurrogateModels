@@ -1,4 +1,4 @@
-def gfun_55_mod(x):
+def gfun_55(x):
     """Performance function for reliability problem 55.
 
     Parameters
@@ -34,12 +34,12 @@ def gfun_55_mod(x):
     if nrv_p != nrv_e:
         msg = f'The number of random variables (x, columns) is expected to be {nrv_e} but {nrv_p} is provided!'
     else:
-        g1 = 0.5 + 0.6 * (x[:, 0] - x[:, 1]) ** 4 - (x[:, 0] - x[:, 1]) / np.sqrt(2)
-        g2 = 0.5 + 0.6 * (x[:, 0] - x[:, 1]) ** 4 + (x[:, 0] - x[:, 1]) / np.sqrt(2)
-        g3 = (x[:, 0] - x[:, 1]) + 5 / np.sqrt(2) - 1.6
-        g4 = (x[:, 1] - x[:, 0]) + 5 / np.sqrt(2) - 1.6
+        g1 = 0.5 + 7.0 * (x[:, 0] - x[:, 1]) ** 4 + (x[:, 0] - x[:, 1]) / np.sqrt(2)
+        g2 = 0.5 + 7.0 * (x[:, 0] - x[:, 1]) ** 4 - (x[:, 0] - x[:, 1]) / np.sqrt(2)
+        g3 = (x[:, 0]**2 - x[:, 1]) + 5 / np.sqrt(2) - 2.0
+        g4 = (x[:, 1] - x[:, 0]**2) + 5 / np.sqrt(2) - 2.0
         g = np.amin(np.stack((g1, g2, g3, g4)), 0)
 
     g_val_sys = g
     g_val_comp = np.stack((g1, g2, g3, g4))
-    return g_val_sys
+    return g_val_sys #, g_val_comp, msg
