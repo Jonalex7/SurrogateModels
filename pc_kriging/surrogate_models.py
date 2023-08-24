@@ -97,7 +97,7 @@ class surrogate_models():
             
             for points in range(n_act + 1):
                 
-                print('N° Training Samples: ', len(xn))
+                print('Training model with', len(xn),'samples..')
                 mean_loo = np.zeros(len(xn))
                 var_loo = np.zeros(len(xn))
                 
@@ -147,7 +147,6 @@ class surrogate_models():
                 LOOCV = np.zeros(int(MCpool))
                 
                 ## Generating pool of samples - MCS -----------------------------------
-
                 for margin in range (0, self.dim):
 
                     if self.config["pol_type"][margin] == 'hermite':
@@ -169,6 +168,7 @@ class surrogate_models():
                         MCinputs[:, margin] = self.scalelegendre( MCinputs_norm[:, margin], min_, max_ )
                 
                 # Pf estimation ----------------------------------------------
+                print('Model predictions with MC population...')
                 if self.metamodeltype == 'PCK':
                     meanMC, stdMC = self.surrogate.predict(MCinputs_norm)    # mean, std
                     
@@ -191,14 +191,14 @@ class surrogate_models():
                 B_sumo = - norm.ppf( Pf_SUMO ) 
 
                 if self.metamodeltype == 'PCK':
-                    print('Degree', opt_degree, 'e_LOO', "%.4f" % round(np.min(eloo_results), 4), 'Pf_ref',
-                        Pf_Ref ,'Pf_SuMo', Pf_SUMO , 'B_sumo', "%.3f" % round(B_sumo, 4), 'CoV_SuMo', "%.3f" % round(cov_pf, 4))
+                    print('Degree:', opt_degree, 'e_LOO:', "%.4f" % round(np.min(eloo_results), 4), 'Pf_ref:',
+                        Pf_Ref ,'Pf_SuMo:', Pf_SUMO , 'B_sumo:', "%.3f" % round(B_sumo, 4), 'CoV_SuMo:', "%.3f" % round(cov_pf, 4))
                     self.training_results[ModelName] = Pf_SUMO, cov_pf, opt_length, opt_degree, np.min(eloo_results)
                     filename = 'PCK_Batch_'+ str(experiments+1)+'.sav'
                     pickle.dump(self.training_results, open(filename, 'wb'))
 
                 elif self.metamodeltype == 'GP':
-                    print('Pf_ref', Pf_Ref ,'Pf_SuMo', Pf_SUMO , 'B_sumo', "%.3f" % round(B_sumo, 4), 'CoV_SuMo', "%.3f" % round(cov_pf, 4))
+                    print('Pf_ref:', Pf_Ref ,'Pf_SuMo:', Pf_SUMO , 'B_sumo:', "%.3f" % round(B_sumo, 4), 'CoV_SuMo:', "%.3f" % round(cov_pf, 4))
                     self.training_results[ModelName] = Pf_SUMO
                     filename = 'GP_Batch_'+ str(experiments+1)+'.sav'
                     pickle.dump(self.training_results, open(filename, 'wb'))
