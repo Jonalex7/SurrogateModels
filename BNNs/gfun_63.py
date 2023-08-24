@@ -1,5 +1,5 @@
-def gfun_55(x):
-    """Performance function for reliability problem 55.
+def gfun_63(x):
+    """Performance function for reliability problem 63.
 
     Parameters
     ----------
@@ -17,9 +17,11 @@ def gfun_55(x):
     """
     import numpy as np
     # expected number of random variables/columns
-    nrv_e = 2
+    nrv_e = 100
 
-    g, g1, g2, g3, g4 = float('nan'), float('nan'), float('nan'), float('nan'), float('nan')
+    a, b = 0.1, 4.5
+
+    g = float('nan')
     msg = 'Ok'
     x = np.array(x, dtype='f')
 
@@ -34,12 +36,8 @@ def gfun_55(x):
     if nrv_p != nrv_e:
         msg = f'The number of random variables (x, columns) is expected to be {nrv_e} but {nrv_p} is provided!'
     else:
-        g1 = 0.5 + 7.0 * (x[:, 0] - x[:, 1]) ** 4 + (x[:, 0] - x[:, 1]) / np.sqrt(2)
-        g2 = 0.5 + 7.0 * (x[:, 0] - x[:, 1]) ** 4 - (x[:, 0] - x[:, 1]) / np.sqrt(2)
-        g3 = (x[:, 0]**2 - x[:, 1]) + 5 / np.sqrt(2) - 2.0
-        g4 = (x[:, 1] - x[:, 0]**2) + 5 / np.sqrt(2) - 2.0
-        g = np.amin(np.stack((g1, g2, g3, g4)), 0)
+        g = a * np.sum(x[:, 1:]**2, axis=1) - x[:, 0] - b
 
     g_val_sys = g
-    g_val_comp = np.stack((g1, g2, g3, g4))
+    g_val_comp = g
     return g_val_sys #, g_val_comp, msg
