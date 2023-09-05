@@ -27,14 +27,16 @@ def example_electric(x):
 
     I1 = (Z0*ZC + ZL*ZC)*np.cosh(Gamma*L) + (ZC**2 + Z0*ZL)*np.sinh(Gamma*L)
     I2 = np.sin(Beta*h*np.cos(theta_p)) / (Beta*h*np.cos(theta_p))
-    I3 = 1j*Beta*np.cos(theta_p) * (-np.sin(theta_e) * np.cos(theta_p) * np.sin(phi_p) + np.cos(theta_e)*np.cos(phi_p))
-    I4 = 0.5* (ZC + Z0) * (np.exp((Gamma + 1j*Beta*np.sin(theta_p)*np.sin(phi_p))*L) - 1) / (Gamma + 1j*Beta*np.sin(theta_p)*np.sin(phi_p))
-    I5 = 0.5* (ZC - Z0) * (np.exp(-(Gamma - 1j*Beta*np.sin(theta_p)*np.sin(phi_p))*L) - 1) / (Gamma - 1j*Beta*np.sin(theta_p)*np.sin(phi_p))
-    I6 = np.sin(theta_e) * np.sin(theta_p) * (ZC - ((ZC*np.cosh(Gamma*L) + Z0*np.sinh(Gamma*L))*np.exp(1j*Beta*L*np.sin(theta_p)*np.sin(phi_p))) )
+    I3 = 1j*Beta*np.cos(theta_p) * ( -np.sin(theta_e) * np.cos(theta_p) * np.sin(phi_p) + np.cos(theta_e)*np.cos(phi_p) )
+    I4 = 0.5* (ZC + Z0) * (np.exp( (Gamma + 1j*Beta*np.sin(theta_p)*np.sin(phi_p))*L ) - 1) / (Gamma + 1j*Beta*np.sin(theta_p)*np.sin(phi_p))
+    I5 = 0.5* (ZC - Z0) * (np.exp( -(Gamma - 1j*Beta*np.sin(theta_p)*np.sin(phi_p))*L ) - 1) / (Gamma - 1j*Beta*np.sin(theta_p)*np.sin(phi_p))
+    I6 = np.sin(theta_e) * np.sin(theta_p) * (ZC - ( ZC*np.cosh(Gamma*L) + Z0*np.sinh(Gamma*L)) *np.exp(1j*Beta*L*np.sin(theta_p)*np.sin(phi_p)) ) 
 
-    I_x = np.absolute( (2*h*ae / I1) * I2*(I3*(I4-I5) + I6))
+    I_t = (2*h*ae / I1) * I2* (I3*(I4-I5) + I6)
+    I_x = np.absolute(I_t)
     I_cr = 1.5e-4
     g_i = I_cr - I_x
+
     #MARGINALS DEFINITION--------------------------------------------------------------------
     # # X1 = L (m) mean=4.2    cov=0.10   lognormal/R>0
     # x1_mean = 4.2
@@ -93,3 +95,62 @@ def example_electric(x):
     # x11_max =  0.0015
 
     return g_i
+
+'''
+Snippet for testing purposes
+
+# Function to convert from lognormal to corresponding Gaussian parameters:
+
+def convert_lognormal(mean_ln, std_ln):
+    gaussian_param = np.zeros(2)
+    
+    SigmaLogNormal = np.sqrt( np.log(1+(std_ln/mean_ln)**2))
+    MeanLogNormal = np.log( mean_ln ) - SigmaLogNormal**2/2
+    
+    gaussian_param[0] = MeanLogNormal
+    gaussian_param[1] = SigmaLogNormal
+    
+    return gaussian_param
+
+# Definition of random variables:
+
+samples_ = 1000000
+
+x = np.zeros((samples_, 11))
+
+mean_, std_ = convert_lognormal(4.2, 4.2*0.1) #L
+x[:, 0] = np.random.lognormal(mean=mean_, sigma=std_, size=samples_)
+
+mean_, std_ = convert_lognormal(0.02, 0.02*0.1) #h
+x[:, 1] = np.random.lognormal(mean=mean_, sigma=std_, size=samples_)
+
+mean_, std_ = convert_lognormal(0.001, 0.001*0.05) #d
+x[:, 2] = np.random.lognormal(mean=mean_, sigma=std_, size=samples_)
+
+mean_, std_ = convert_lognormal(1000, 1000*0.2) #Z_l
+x[:, 3] = np.random.lognormal(mean=mean_, sigma=std_, size=samples_)
+
+mean_, std_ = convert_lognormal(50, 50*0.05) #Z_0
+x[:, 4] = np.random.lognormal(mean=mean_, sigma=std_, size=samples_)
+
+mean_, std_ = convert_lognormal(1, 1*0.2) #E_0
+x[:, 5] = np.random.lognormal(mean=mean_, sigma=std_, size=samples_)
+
+x[:, 6] = np.random.uniform(0, np.pi/2, samples_) #theta_e (rad)
+x[:, 7] = np.random.uniform(0, np.pi/2, samples_) #theta_p (rad)
+
+x[:, 8] = np.random.uniform(0, 2*np.pi, samples_) #phi_p (rad) 
+
+x[:, 9] = np.random.uniform(25e6, 35e6, samples_) #f (MHz)
+
+x[:, 10] = np.random.uniform(0.0005, 0.0015, samples_) #alpha (-)
+
+# Checking statistics #
+print(x.mean(axis=0), x.std(axis=0), x.std(axis=0)/x.mean(axis=0)*100)
+
+output = example_electric(x)
+
+pf = np.sum(output < 0) / samples_
+print(pf)
+
+'''
