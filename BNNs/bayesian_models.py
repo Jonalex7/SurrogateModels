@@ -85,7 +85,8 @@ class Pbnn:
                                            "batch_size": 64,
                                            "epochs": 1000,
                                            "callback_patience": 30,
-                                           "verbose": 0}):
+                                           "verbose": 0,
+                                           "valid_split": 0.2}):
         optimizer = train_env["optimizer"] if train_env.get("optimizer") is not None\
             else optimizers.Adam
         learning_rate = train_env["learning_rate"] if train_env.get("learning_rate") is not None\
@@ -98,17 +99,19 @@ class Pbnn:
             else 30
         verbose = train_env["verbose"] if train_env.get("verbose") is not None\
             else 0
+        valid_split = train_env["valid_split"] if train_env.get("valid_split") is not None\
+            else 0.2
         self.model.compile(optimizer(learning_rate=learning_rate), loss=self.NLL)
         # self.model.compile(optimizer(learning_rate=learning_rate), loss=losses.MeanSquaredError())
         callback = tf.keras.callbacks.EarlyStopping(monitor='loss', min_delta=0, patience=callback_patience, 
                                                     verbose=0, mode='auto', baseline=None,
                                                     restore_best_weights=True)        
         history = self.model.fit(X, Y, batch_size=batch_size, epochs=epochs, verbose=verbose, 
-                                 validation_split = 0, callbacks = callback)
+                                 validation_split = valid_split, callbacks = callback)
         self.weights = self.model.get_weights()
         print('Training completed')
         print('Minimum loss: ', min(history.history['loss']))
-        return
+        return history
     
     
     def test_bnn(self, Xtest, nsim=100):
